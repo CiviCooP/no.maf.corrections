@@ -16,7 +16,7 @@ function civicrm_api3_household_migrate($params) {
   $household = new CRM_Corrections_Household();
 
   // if there is a param contact_id, only process this single contact else read all households
-  if (!isset($params['contact_id']) && empty($params['contact_id'])) {
+  if (!isset($params['contact_id']) || empty($params['contact_id'])) {
     $queryHousehold = 'SELECT id FROM civicrm_contact WHERE contact_type = %1 AND is_deleted = %2 LIMIT 1000';
     $paramsHousehold = array(
       1 => array("Household", "String"),
@@ -28,6 +28,7 @@ function civicrm_api3_household_migrate($params) {
     }
   } else {
     $household->migrate($params['contact_id']);
+    $returnValues[] = "contact_id ".$params['contact_id'];
   }
 
   return civicrm_api3_create_success($returnValues, $params, 'Household', 'Migrate');
