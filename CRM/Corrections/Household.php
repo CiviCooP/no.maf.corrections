@@ -115,6 +115,8 @@ class CRM_Corrections_Household {
     if ($primaryIndividualId == FALSE) {
       $this->_logger->logMessage('Error', 'Could not find a primary individual for household '.$householdId);
       return FALSE;
+    } else {
+      $this->_logger->logMessage('Success', 'Found primary individual '.$primaryIndividualId.' for household '.$householdId);
     }
 
     // STEP 2: change all relevant tables, set contact_id to primaryIndividualId where it was householdId
@@ -133,6 +135,8 @@ class CRM_Corrections_Household {
     // STEP 6: add the household address to the primary individual as a master and to all others as slaves
     $this->createMasterAddress($primaryIndividualId, $householdId);
     $this->createSlaveAddress($primaryIndividualId, $otherIndividualIds);
+    $this->_logger->logMessage('Completion', 'Completed migration of household '.$householdId.' with primary individual '
+      .$primaryIndividualId.' (and possibly other individual(s) '.implode(';', $otherIndividualIds.')'));
   }
 
   /**
@@ -146,6 +150,10 @@ class CRM_Corrections_Household {
     $daoAddress = CRM_Core_DAO::executeQuery($query, array(1 => array($primaryIndividualId, 'Integer')));
     while ($daoAddress->fetch()) {
       foreach ($otherIndividualIds as $otherIndividualId) {
+        // delete existing address for individual just to be sure (should not bet there but you never know)
+        CRM_Core_DAO::executeQuery('DELETE FROM civicrm_address WHERE contact_id = %1',
+          array(1 => array($otherIndividualId, 'Integer')));
+
         $insert = 'INSERT INTO civicrm_address (contact_id, location_type_id, is_primary, is_billing, street_address, 
           city, state_province_id, postal_code, manual_geo_code, master_id) 
           VALUES(%1, %2, %3, %4, %5, %6, %7, %8, %9, %10)';
@@ -161,6 +169,7 @@ class CRM_Corrections_Household {
           9 => array($daoAddress->manual_geo_code, 'Integer'),
           10 => array($daoAddress->id, 'Integer'));
         CRM_Core_DAO::executeQuery($insert, $insertParams);
+        $this->_logger->logMessage('Success', 'Created address with master_id '.$daoAddress->id.' for individual '.$otherIndividualId);
       }
     }
   }
@@ -179,6 +188,9 @@ class CRM_Corrections_Household {
     $params = array(
       1 => array($primaryIndividualId, 'Integer'),
       2 => array($householdId, 'Integer'));
+    CRM_Core_DAO::executeQuery($query, $params);
+    $this->_logger->logMessage('Success', 'Updated addresses for household '.$householdId
+      .' to primary individual '.$primaryIndividualId);
   }
 
   /**
@@ -199,6 +211,7 @@ class CRM_Corrections_Household {
           4 => array(1, 'Integer'),
           5 => array(0, 'Integer'));
         CRM_Core_DAO::executeQuery($insert, $insertParams);
+        $this->_logger->logMessage('Success', 'Created relationship Spouse between '.$primaryIndividualId.' and '.$otherIndividualId);
       }
     }
   }
@@ -268,6 +281,8 @@ class CRM_Corrections_Household {
       $queryKidBase = 'INSERT INTO '.$this->_kidBaseTable.' (entity_id, '.$this->_kidBaseColumn.') VALUES(%2, %1)';
     }
     CRM_Core_DAO::executeQuery($queryKidBase, $paramsKidBase);
+    $this->_logger->logMessage('Success', 'Updated or inserted '.$this->_kidBaseColumn.' in table '.$this->_kidBaseTable
+      .' with value household '.$householdId .' for primary individual '.$primaryIndividualId);
   }
 
   /**
@@ -300,6 +315,8 @@ class CRM_Corrections_Household {
         1 => array($primaryIndividualId, 'Integer'),
         2 => array($householdId, 'Integer'));
       CRM_Core_DAO::executeQuery($queryCustomTable, $paramsCustomTable);
+      $this->_logger->logMessage('Success', 'Updated records in custom table '.$daoCustomGroups->table_name
+        .' from household '.$householdId .' to primary individual '.$primaryIndividualId);
     }
   }
 
@@ -322,6 +339,7 @@ class CRM_Corrections_Household {
     foreach ($massTables as $tableName) {
       $query = "UPDATE ".$tableName." SET contact_id = %1 WHERE contact_id = %2";
       CRM_Core_DAO::executeQuery($query, $params);
+      $this->_logger->logMessage('Success', 'Updated contact_id in table '.$tableName.' from '.$householdId.' to '.$primaryIndividualId);
     }
 
     // civicrm_activity_contact needs a check if there is already a record for the record_type and primary individual id
@@ -331,12 +349,16 @@ class CRM_Corrections_Household {
       if ($this->activityContactPrimaryExists($daoActHousehold, $primaryIndividualId) == TRUE) {
         CRM_Core_DAO::executeQuery('DELETE FROM civicrm_activity_contact WHERE id = %1', array(
           1 => array($daoActHousehold->id, 'Integer')));
+        $this->_logger->logMessage('Success', 'Deleted record in table civicrm_activity_contact for household '.$householdId
+          .' and record type '.$daoActHousehold->record_type_id. ' because there already is a record for primary individual '
+          .$primaryIndividualId);
       } else {
         $updateActHousehold = 'UPDATE civicrm_activity_contact SET contact_id = %1 WHERE id = %2';
         $paramsActHousehold = array(
           1 => array($primaryIndividualId, 'Integer'),
           2 => array($daoActHousehold->id, 'Integer'));
         CRM_Core_DAO::executeQuery($updateActHousehold, $paramsActHousehold);
+        $this->_logger->logMessage('Success', 'Updated contact_id in table civicrm_activity_contact from '.$householdId.' to '.$primaryIndividualId);
       }
     }
 
@@ -355,6 +377,10 @@ class CRM_Corrections_Household {
 
         CRM_Core_DAO::executeQuery('DELETE FROM civicrm_group_contact WHERE id = %1', array(
           1 => array($daoGroupContact->id, 'Integer')));
+
+        $this->_logger->logMessage('Success', 'Deleted records in tables civicrm_group_contact, civicrm_group_contact_cache 
+          and civicrm_subscription_history for household '.$householdId.' and group '.$daoGroupContact->group_id
+          . ' because primary individual '.$primaryIndividualId.' is already in the group');
 
       } else {
 
@@ -375,6 +401,9 @@ class CRM_Corrections_Household {
           1 => array($primaryIndividualId, 'Integer'),
           2 => array($daoGroupContact->id, 'Integer'));
         CRM_Core_DAO::executeQuery($updateGroupContact, $paramsGroupContact);
+        $this->_logger->logMessage('Success', 'Updated records in tables civicrm_group_contact, civicrm_group_contact_cache 
+          and civicrm_subscription_history from household '.$householdId.' to primary individual '.$primaryIndividualId
+          . 'and group '.$daoGroupContact->group_id);
       }
     }
 
@@ -385,6 +414,8 @@ class CRM_Corrections_Household {
       2 => array($householdId, 'Integer'),
       3 => array('civicrm_contact', 'String'));
     CRM_Core_DAO::executeQuery($queryLog, $paramsLog);
+    $this->_logger->logMessage('Success', 'Updated records in table civicrm_log from household '.$householdId
+      .' to primary individual '.$primaryIndividualId);
 
     // civicrm_maf_invoice_entity
     $queryInvoiceEntity = 'UPDATE civicrm_maf_invoice_entity SET entity_id = %1 WHERE entity_id = %2 AND entity = %3';
@@ -393,6 +424,8 @@ class CRM_Corrections_Household {
       2 => array($householdId, 'Integer'),
       3 => array('Contact', 'String'));
     CRM_Core_DAO::executeQuery($queryInvoiceEntity, $paramsInvoiceEntity);
+    $this->_logger->logMessage('Success', 'Updated records in table civicrm_maf_invoice_entity from household '.$householdId
+      .' to primary individual '.$primaryIndividualId);
 
     // civicrm_note
     $queryNote = 'UPDATE civicrm_note SET entity_id = %1 WHERE entity_id = %2 AND entity_table = %3';
@@ -401,6 +434,8 @@ class CRM_Corrections_Household {
       2 => array($householdId, 'Integer'),
       3 => array('civicrm_contact', 'String'));
     CRM_Core_DAO::executeQuery($queryNote, $paramsNote);
+    $this->_logger->logMessage('Success', 'Updated records in table civicrm_note from household '.$householdId
+      .' to primary individual '.$primaryIndividualId);
   }
 
   /**
