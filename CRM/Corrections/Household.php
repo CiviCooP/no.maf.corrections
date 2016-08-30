@@ -191,14 +191,39 @@ class CRM_Corrections_Household {
     $insert = 'INSERT INTO civicrm_relationship (contact_id_a, contact_id_b, relationship_type_id, is_active, is_permission_a_b, 
       is_permission_b_a) VALUES(%1, %2, %3, %4, %5, %5)';
     foreach ($otherIndividualIds as $otherIndividualId) {
-      $insertParams = array(
-        1 => array($primaryIndividualId, 'Integer'),
-        2 => array($otherIndividualId, 'Integer'),
-        3 => array($this->_spouseRelationshipTypeId, 'Integer'),
-        4 => array(1, 'Integer'),
-        5 => array(0, 'Integer'));
-      CRM_Core_DAO::executeQuery($insert, $insertParams);
+      if ($this->spouseRelationExists($primaryIndividualId, $otherIndividualId) == FALSE) {
+        $insertParams = array(
+          1 => array($primaryIndividualId, 'Integer'),
+          2 => array($otherIndividualId, 'Integer'),
+          3 => array($this->_spouseRelationshipTypeId, 'Integer'),
+          4 => array(1, 'Integer'),
+          5 => array(0, 'Integer'));
+        CRM_Core_DAO::executeQuery($insert, $insertParams);
+      }
     }
+  }
+
+  /**
+   * Method to find out if there is an existing relationship spouse between contact_id_a and contact_id_b
+   *
+   * @param $contactIdA
+   * @param $contactIdB
+   * @return bool
+   */
+  public function spouseRelationExists($contactIdA, $contactIdB) {
+    $query = 'SELECT COUNT(*) FROM civicrm_relationship WHERE contact_id_a = %1 AND contact_id_b = %2 
+      AND civicrm_relationship.relationship_type_id = %3';
+    $params = array(
+      1 => array($contactIdA, 'Integer'),
+      2 => array($contactIdB, 'Integer'),
+      3 => array($this->_spouseRelationshipTypeId, 'Integer'));
+    $count = CRM_Core_DAO::singleValueQuery($query, $params);
+    if ($count > 0) {
+      return TRUE;
+    } else {
+      return FALSE;
+    }
+
   }
   /**
    * Method to find the individuals linked to the household that are NOT the primary individual
