@@ -17,6 +17,8 @@ class CRM_Corrections_Household {
   private $_spouseRelationshipTypeId = 0;
   private $_householdHeadRelationshipTypeId = 0;
   private $_householdMemberRelationshipTypeId = 0;
+  private $_migrationTable = NULL;
+  private $_migrationColumn = NULL;
 
   /**
    * CRM_Corrections_Household constructor.
@@ -41,6 +43,27 @@ class CRM_Corrections_Household {
       ));
     } catch (CiviCRM_API3_Exception $ex) {
       throw new Exception('Could not find a custom field with name kid_base in custom group kid_base in ' . __METHOD__
+        . ', contact your system administrator. Error from API CustomField getvalue: ' . $ex->getMessage());
+    }
+
+    try {
+      $this->_migrationTable = civicrm_api3('CustomGroup', 'getvalue', array(
+        'name' => 'migration_processed',
+        'extends' => 'Household',
+        'return' => 'table_name'));
+    } catch (CiviCRM_API3_Exception $ex) {
+      throw new Exception('Could not find a custom group with the name migration_processed in ' . __METHOD__ . ', contact your system administrator. 
+      Error from API CustomGroup getvalue: ' . $ex->getMessage());
+    }
+
+    try {
+      $this->_migrationColumn = civicrm_api3('CustomField', 'getvalue', array(
+        'custom_group_id' => 'migration_processed',
+        'name' => 'processed',
+        'return' => 'column_name'
+      ));
+    } catch (CiviCRM_API3_Exception $ex) {
+      throw new Exception('Could not find a custom field with name processed in custom group migration_processed in ' . __METHOD__
         . ', contact your system administrator. Error from API CustomField getvalue: ' . $ex->getMessage());
     }
 
@@ -80,7 +103,7 @@ class CRM_Corrections_Household {
    * @throws Exception when error in API actions
    */
   private function getPrimaryColumn() {
-    try {
+    //try {
       $customGroups = civicrm_api3('CustomGroup', 'get', array('extends' => 'Household'));
       foreach ($customGroups['values'] as $customGroup) {
         if ($customGroup['name'] == 'Primary_Contact') {
@@ -91,10 +114,10 @@ class CRM_Corrections_Household {
           ));
         }
       }
-    } catch (CiviCRM_API3_Exception $ex) {
-      throw new Exception('Could not find a custom group or custom field for the primary contact with household. 
-      Set up this group and try again');
-    }
+    //} catch (CiviCRM_API3_Exception $ex) {
+      //throw new Exception('Could not find a custom group or custom field for the primary contact with household.
+      //Set up this group and try again');
+    //}
   }
 
   /**
@@ -110,7 +133,10 @@ class CRM_Corrections_Household {
     }
     $this->_logger = new CRM_Corrections_Logger('maf_household_'.$householdId.'_migration');
 
-    // STEP 1: find primary contact of household, log and ignore further processing if nothing is found
+    // STEP 1: set the processed flag for the household
+    $this->setProcessedHousehold($householdId);
+
+    // STEP 2: find primary contact of household, log and ignore further processing if nothing is found
     $primaryIndividualId = $this->findPrimaryIndividual($householdId);
     if ($primaryIndividualId == FALSE) {
       $this->_logger->logMessage('Error', 'Could not find a primary individual for household '.$householdId);
@@ -119,24 +145,43 @@ class CRM_Corrections_Household {
       $this->_logger->logMessage('Success', 'Found primary individual '.$primaryIndividualId.' for household '.$householdId);
     }
 
-    // STEP 2: change all relevant tables, set contact_id to primaryIndividualId where it was householdId
+    // STEP 3: change all relevant tables, set contact_id to primaryIndividualId where it was householdId
     $this->updateTables($primaryIndividualId, $householdId);
     $this->updateCustomGroups($primaryIndividualId, $householdId);
 
-    // STEP 3: set the kid_base field for the primary individual
+    // STEP 4: set the kid_base field for the primary individual
     $this->setKidBase($primaryIndividualId, $householdId);
 
-    // STEP 4: retrieve all other related indivdiduals
+    // STEP 5: retrieve all other related indivdiduals
     $otherIndividualIds = $this->findOtherIndividuals($primaryIndividualId, $householdId);
 
-    // STEP 5: create the spouse relationship between primary individual and all others
+    // STEP 6: create the spouse relationship between primary individual and all others
     $this->createSpouseRelation($primaryIndividualId, $otherIndividualIds);
 
-    // STEP 6: add the household address to the primary individual as a master and to all others as slaves
+    // STEP 7: add the household address to the primary individual as a master and to all others as slaves
     $this->createMasterAddress($primaryIndividualId, $householdId);
     $this->createSlaveAddress($primaryIndividualId, $otherIndividualIds);
     $this->_logger->logMessage('Completion', 'Completed migration of household '.$householdId.' with primary individual '
       .$primaryIndividualId.' (and possibly other individual(s) '.implode(';', $otherIndividualIds).')');
+  }
+
+  /**
+   * Method to set the processed flag for the household
+   *
+   * @param $householdId
+   */
+  private function setProcessedHousehold($householdId) {
+    $query = 'SELECT * FROM civicrm_value_migration_processed WHERE entity_id = %1';
+    $count = CRM_Core_DAO::singleValueQuery($query, array(1 => array($householdId, 'Integer')));
+    $paramsProcessed = array(
+      1 => array(1, 'Integer'),
+      2 => array($householdId, 'Integer'));
+    if ($count > 0) {
+      $queryProcessed = 'UPDATE civicrm_value_migration_processed SET processed = %1 WHERE entity_id = %2';
+    } else {
+      $queryProcessed = 'INSERT INTO civicrm_value_migration_processed (entity_id, processed) VALUES(%2, %1)';
+    }
+    CRM_Core_DAO::executeQuery($queryProcessed, $paramsProcessed);
   }
 
   /**
