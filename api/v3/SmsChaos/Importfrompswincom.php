@@ -38,7 +38,7 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
 
   CRM_Smsautoreply_Reply::disable();
 
-  if (($handle = fopen($path."/files/20161024-Missing-SMS.csv", "r")) !== FALSE) {
+  if (($handle = fopen($path."/files/20161031-Missing-SMS.csv", "r")) !== FALSE) {
     while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
       $row ++;
 
