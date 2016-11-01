@@ -5,6 +5,7 @@
  */
 
 function civicrm_api3_sms_chaos_importfrompswincom($params) {
+  set_time_limit(0);
   $returnValues = array();
 
   // Import CSV File:
@@ -81,13 +82,7 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
         $fromContactID = $fromContact->id;
       }
 
-      if ($to) {
-        $to = CRM_Utils_Type::escape($to, 'String');
-        $toContactID = CRM_Core_DAO::singleValueQuery('SELECT contact_id FROM civicrm_phone JOIN civicrm_contact ON civicrm_contact.id = civicrm_phone.contact_id WHERE !civicrm_contact.is_deleted AND phone LIKE "%' . $to . '"');
-      }
-      else {
-        $toContactID = $fromContactID;
-      }
+      $toContactID = 10; // That is Jaap Jansma
 
       if ($fromContactID) {
         // note: lets not pass status here, assuming status will be updated by callback
@@ -112,6 +107,7 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
         $contributionParams['thankyou_date'] = $date->format('YmdHis');
         $contributionParams['contribution_status_id'] = 1; //pending
         $contributionParams['source' ] = 'Import SMS after chaos Oct. 2016';
+        $contributionParams['custom_145'] = '0'; // Set Thank you MAF Norge: Skal dett takkes for gaven? to Nein
 
         $paymentInstrument = CRM_Core_OptionGroup::getValue('payment_instrument', 'SMS');
         if ($paymentInstrument) {
