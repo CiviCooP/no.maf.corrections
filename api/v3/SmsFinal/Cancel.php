@@ -12,6 +12,7 @@
  * @throws API_Exception
  */
 function civicrm_api3_sms_final_cancel($params) {
+  set_time_limit(0);
   $returnValues = array();
   $smsPaymentInstrumentId = civicrm_api3('OptionValue', 'getvalue', array(
     'option_group_id' => 'payment_instrument',
@@ -28,12 +29,14 @@ function civicrm_api3_sms_final_cancel($params) {
   $financialTypeId = 1;
 
   $sql = "SELECT id FROM civicrm_contribution 
-    WHERE payment_instrument_id = %1 AND financial_type_id = %2 AND (receive_date BETWEEN %3 AND %4)";
+    WHERE payment_instrument_id = %1 AND financial_type_id = %2 AND (receive_date BETWEEN %3 AND %4) 
+    AND cancel_reason <> %5";
   $dao = CRM_Core_DAO::executeQuery($sql, array(
     1 => array($smsPaymentInstrumentId, 'Integer'),
     2 => array($financialTypeId, 'Integer'),
     3 => array('2016-10-01', 'String'),
-    4 => array('2016-10-31', 'String')
+    4 => array('2016-10-31', 'String'),
+    5 => array($cancelReason, 'String')
   ));
   while ($dao->fetch()) {
     $contributionParams = array(
