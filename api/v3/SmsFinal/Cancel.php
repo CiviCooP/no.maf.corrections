@@ -30,7 +30,7 @@ function civicrm_api3_sms_final_cancel($params) {
 
   $sql = "SELECT id FROM civicrm_contribution 
     WHERE payment_instrument_id = %1 AND financial_type_id = %2 AND (receive_date BETWEEN %3 AND %4) 
-    AND cancel_reason <> %5";
+    AND (cancel_reason != %5 OR cancel_reason IS NULL)";
   $dao = CRM_Core_DAO::executeQuery($sql, array(
     1 => array($smsPaymentInstrumentId, 'Integer'),
     2 => array($financialTypeId, 'Integer'),
