@@ -106,7 +106,7 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
         $contributionParams['receive_date'] = $date->format('YmdHis');
         $contributionParams['thankyou_date'] = $date->format('YmdHis');
         $contributionParams['contribution_status_id'] = 1; //pending
-        $contributionParams['source' ] = 'Import SMS after chaos Oct. 2016';
+        $contributionParams['source' ] = 'Import SMS after chaos Nov. 2016';
         $contributionParams['custom_145'] = '0'; // Set Thank you MAF Norge: Skal dett takkes for gaven? to Nein
 
         $paymentInstrument = CRM_Core_OptionGroup::getValue('payment_instrument', 'SMS');
@@ -116,14 +116,16 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
 
         $contribution = civicrm_api3('Contribution', 'Create', $contributionParams);
 
-        //process note (sms message)
-        $noteParams = array(
-          'entity_table' => 'civicrm_contribution',
-          'note' => $body,
-          'entity_id' => $contribution['id'],
-          'contact_id' => $fromContactID,
-        );
-        civicrm_api3('Note', 'create', $noteParams);
+        if (!empty($body)) {
+          //process note (sms message)
+          $noteParams = array(
+            'entity_table' => 'civicrm_contribution',
+            'note' => $body,
+            'entity_id' => $contribution['id'],
+            'contact_id' => $fromContactID,
+          );
+          civicrm_api3('Note', 'create', $noteParams);
+        }
 
         CRM_Core_DAO::executeQuery("INSERT INTO `".$balans_konto_table_name."` (`entity_id`, `".$balans_konto_field_name."`) VALUES (%1, %2) ON DUPLICATE KEY UPDATE `".$balans_konto_field_name."` = %2;", array(
           1 => array($contribution['id'], 'Positive'),
