@@ -40,11 +40,14 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
   CRM_Smsautoreply_Reply::disable();
 
   if (($handle = fopen($path."/files/import_sms.csv", "r")) !== FALSE) {
-    while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+    while (($data = fgetcsv($handle, 1000, ";")) !== FALSE) {
       $row ++;
 
       if ($row <= 1) {
         continue;
+      }
+      if ($row > 11) {
+        break; // Stop after processing ten rows
       }
 
       $from = $data[0];
@@ -94,7 +97,7 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
           'status_id' => $actStatusIDs['Completed'],
           'details' => $body,
           'phone_number' => $from,
-          'subject' => 'Import SMS after chaos Oct. 2016'
+          'subject' => 'Import SMS after chaos Nov. 2016'
         );
 
         CRM_Activity_BAO_Activity::create($activityParams);
@@ -116,16 +119,14 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
 
         $contribution = civicrm_api3('Contribution', 'Create', $contributionParams);
 
-        if (!empty($body)) {
-          //process note (sms message)
-          $noteParams = array(
-            'entity_table' => 'civicrm_contribution',
-            'note' => $body,
-            'entity_id' => $contribution['id'],
-            'contact_id' => $fromContactID,
-          );
-          civicrm_api3('Note', 'create', $noteParams);
-        }
+        //process note (sms message)
+        $noteParams = array(
+          'entity_table' => 'civicrm_contribution',
+          'note' => $body,
+          'entity_id' => $contribution['id'],
+          'contact_id' => $fromContactID,
+        );
+        civicrm_api3('Note', 'create', $noteParams);
 
         CRM_Core_DAO::executeQuery("INSERT INTO `".$balans_konto_table_name."` (`entity_id`, `".$balans_konto_field_name."`) VALUES (%1, %2) ON DUPLICATE KEY UPDATE `".$balans_konto_field_name."` = %2;", array(
           1 => array($contribution['id'], 'Positive'),
