@@ -1,7 +1,7 @@
 <?php
 
 /**
- * SmsFinal.Cancel API
+ * SmsFinal.Create API
  * Correction scheduled job for SMS Fix on 30 Nov 2016:
  * - second step is to create contributions for all incoming sms from pswincom file
  *
@@ -57,7 +57,8 @@ function civicrm_api3_sms_final_create($params) {
       'payment_instrument_id' => $dao->payment_instrument_id,
       'total_amount' => $dao->total_amount,
       'contribution_status_id' => $completedStatusId,
-      'source' => $dao->source
+      'source' => $dao->source,
+      'trxn_id' => $dao->message_id
     );
     if (!empty($dao->donation_date)) {
       $contributionParams['receive_date'] = $dao->donation_date;
