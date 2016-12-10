@@ -39,12 +39,20 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
 
   CRM_Smsautoreply_Reply::disable();
 
+<<<<<<< HEAD
   if (($handle = fopen($path."/files/20161031-Missing-SMS.csv", "r")) !== FALSE) {
     while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
+=======
+  if (($handle = fopen($path."/files/import_sms.csv", "r")) !== FALSE) {
+    while (($data = fgetcsv($handle, 1000, ";")) !== FALSE) {
+>>>>>>> 265ba924f4f564d55bdc68c3205b3490187fbb65
       $row ++;
 
       if ($row <= 1) {
         continue;
+      }
+      if ($row > 11) {
+        break; // Stop after processing ten rows
       }
 
       $from = $data[0];
@@ -94,7 +102,7 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
           'status_id' => $actStatusIDs['Completed'],
           'details' => $body,
           'phone_number' => $from,
-          'subject' => 'Import SMS after chaos Oct. 2016'
+          'subject' => 'Import SMS after chaos Nov. 2016'
         );
 
         CRM_Activity_BAO_Activity::create($activityParams);
@@ -106,7 +114,11 @@ function civicrm_api3_sms_chaos_importfrompswincom($params) {
         $contributionParams['receive_date'] = $date->format('YmdHis');
         $contributionParams['thankyou_date'] = $date->format('YmdHis');
         $contributionParams['contribution_status_id'] = 1; //pending
+<<<<<<< HEAD
         $contributionParams['source' ] = 'Import SMS after chaos Oct. 2016';
+=======
+        $contributionParams['source' ] = 'Import SMS after chaos Nov. 2016';
+>>>>>>> 265ba924f4f564d55bdc68c3205b3490187fbb65
         $contributionParams['custom_145'] = '0'; // Set Thank you MAF Norge: Skal dett takkes for gaven? to Nein
 
         $paymentInstrument = CRM_Core_OptionGroup::getValue('payment_instrument', 'SMS');
