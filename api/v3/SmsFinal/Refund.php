@@ -26,7 +26,6 @@ function civicrm_api3_sms_final_refund($params) {
     1 => array(1, 'Integer'),
     2 => array('#N/B', 'String')));
   while ($dao->fetch()) {
-
     // find contribution to refund
     $getParams = array(
       'contact_id' => $dao->contact_id,
@@ -38,14 +37,16 @@ function civicrm_api3_sms_final_refund($params) {
       'trxn_id' => $dao->message_id,
       'return' => 'id'
     );
-    $foundContributions = civicrm_api3('Contribution', 'get', $getParams);
-    foreach ($foundContributions['values'] as $contribution) {
+    try {
+      $foundContributionId = civicrm_api3('Contribution', 'getvalue', $getParams);
       $refundParams = array(
-        'id' => $contribution['contribution_id'],
+        'id' => $foundContributionId,
+        'cancel_date' => '27-10-2016',
+        'cancel_reason' => 'Refunded by sms-supplier with message_id ' . $dao->refunded_id,
         'contribution_status_id' => $refundedStatusId,
       );
       civicrm_api3('Contribution', 'create', $refundParams);
-    }
+    } catch (CiviCRM_API3_Exception $ex) {}
     // finally update to processed
     $processedSql = "UPDATE sms_donations_30_nov SET processed = %1 WHERE message_id = %2";
     $processedParams = array(
